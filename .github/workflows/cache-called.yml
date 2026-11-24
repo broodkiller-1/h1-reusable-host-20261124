@@ -1,0 +1,12 @@
+name: Owned cache-mode called workflow
+
+on:
+  workflow_call:
+
+cache-mode: write
+
+jobs:
+  observe:
+    runs-on: ubuntu-latest
+    steps:
+      - run: echo 'owned cache-mode control reached called job'
