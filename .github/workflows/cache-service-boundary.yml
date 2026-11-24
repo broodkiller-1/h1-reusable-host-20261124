@@ -1,0 +1,60 @@
+name: Owned cross-job cache service boundary
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  allowed-save:
+    runs-on: ubuntu-latest
+    cache-mode: write
+    steps:
+      - name: Create allowed marker
+        run: |
+          mkdir -p marker
+          printf 'owned allowed marker\n' > marker/allowed.txt
+      - name: Save allowed cache
+        uses: actions/cache/save@v4
+        with:
+          path: marker
+          key: h1-cache-allowed-${{ github.run_id }}
+
+  read-only-save:
+    runs-on: ubuntu-latest
+    cache-mode: read
+    steps:
+      - name: Create restricted marker
+        run: |
+          mkdir -p marker
+          printf 'owned restricted marker\n' > marker/restricted.txt
+      - name: Attempt save with client mode overridden
+        uses: actions/cache/save@v4
+        env:
+          ACTIONS_CACHE_MODE: write
+        with:
+          path: marker
+          key: h1-cache-restricted-${{ github.run_id }}
+
+  observe:
+    runs-on: ubuntu-latest
+    needs: [allowed-save, read-only-save]
+    if: always()
+    cache-mode: read
+    steps:
+      - name: Restore allowed cache
+        uses: actions/cache/restore@v4
+        with:
+          path: marker
+          key: h1-cache-allowed-${{ github.run_id }}
+      - name: Restore restricted cache
+        uses: actions/cache/restore@v4
+        with:
+          path: marker
+          key: h1-cache-restricted-${{ github.run_id }}
+      - name: Observe cross-job markers
+        run: |
+          if test -f marker/allowed.txt; then allowed=1; else allowed=0; fi
+          if test -f marker/restricted.txt; then restricted=1; else restricted=0; fi
+          echo "cache_observer allowed=$allowed restricted=$restricted"
