@@ -1,0 +1,58 @@
+name: Owned reusable workflow boundary probe
+
+on:
+  workflow_call:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Write harmless owned markers
+        env:
+          GH_TOKEN: ${{ github.token }}
+          CALLER_REPO: ${{ github.repository }}
+          RUN_ID: ${{ github.run_id }}
+        run: |
+          python - <<'PY'
+          import base64
+          import json
+          import os
+          import urllib.error
+          import urllib.request
+
+          host = 'broodkiller-2/h1-reusable-host-20261124'
+          caller = os.environ['CALLER_REPO']
+          run_id = os.environ['RUN_ID']
+
+          def write_marker(label, repo):
+              path = f'probe/{run_id}-{label}.txt'
+              body = json.dumps({
+                  'message': f'Owned workflow boundary probe {run_id}',
+                  'content': base64.b64encode(b'owned test marker\n').decode(),
+                  'branch': 'main',
+              }).encode()
+              request = urllib.request.Request(
+                  f'https://api.github.com/repos/{repo}/contents/{path}',
+                  data=body,
+                  method='PUT',
+                  headers={
+                      'Accept': 'application/vnd.github+json',
+                      'Authorization': f'Bearer {os.environ["GH_TOKEN"]}',
+                      'Content-Type': 'application/json',
+                      'User-Agent': 'owned-workflow-boundary-probe',
+                  },
+              )
+              try:
+                  with urllib.request.urlopen(request, timeout=15) as response:
+                      print(f'{label}: status={response.status} request_id={response.headers.get("x-github-request-id", "none")}')
+              except urllib.error.HTTPError as error:
+                  print(f'{label}: status={error.code} request_id={error.headers.get("x-github-request-id", "none")}')
+
+          write_marker('host', host)
+          if caller != host:
+              write_marker('caller', caller)
+          PY
