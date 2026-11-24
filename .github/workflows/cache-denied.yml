@@ -1,0 +1,9 @@
+name: Owned cache-mode denied control
+
+on:
+  workflow_dispatch:
+
+jobs:
+  call:
+    cache-mode: read
+    uses: ./.github/workflows/cache-called.yml
