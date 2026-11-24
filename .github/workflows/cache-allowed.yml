@@ -1,0 +1,9 @@
+name: Owned cache-mode allowed control
+
+on:
+  workflow_dispatch:
+
+jobs:
+  call:
+    cache-mode: write
+    uses: ./.github/workflows/cache-called.yml
