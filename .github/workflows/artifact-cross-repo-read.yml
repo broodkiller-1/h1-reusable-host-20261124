@@ -1,0 +1,46 @@
+name: Owned cross repository artifact boundary
+on:
+  workflow_dispatch:
+permissions:
+  actions: read
+  contents: read
+jobs:
+  observe:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Compare token access without following redirects
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          python3 - <<'PY'
+          import os
+          import urllib.error
+          import urllib.request
+
+          base = 'https://api.github.com/repos/broodkiller-2/'
+          paths = {
+              'owned_public_run': f'h1-reusable-host-20261124/actions/runs/{os.environ["GITHUB_RUN_ID"]}',
+              'owned_private_artifact': 'h1-package-fixture-20261124/actions/artifacts/14937616067/zip',
+          }
+          class NoRedirect(urllib.request.HTTPRedirectHandler):
+              def redirect_request(self, request, fp, code, message, headers, newurl):
+                  return None
+
+          opener = urllib.request.build_opener(NoRedirect)
+          for label, path in paths.items():
+              request = urllib.request.Request(
+                  base + path,
+                  headers={
+                      'Authorization': 'Bearer ' + os.environ['GH_TOKEN'],
+                      'Accept': 'application/vnd.github+json',
+                      'X-GitHub-Api-Version': '2026-03-10',
+                  },
+              )
+              try:
+                  response = opener.open(request, timeout=10)
+                  status = response.status
+                  response.close()
+              except urllib.error.HTTPError as error:
+                  status = error.code
+              print(f'artifact_boundary {label}={status}')
+          PY
